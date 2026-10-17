@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+const base='http://127.0.0.1:5173';
+async function request(path,options={}){return fetch(base+path,{...options,signal:AbortSignal.timeout(30000)});}
+const page=await request('/');assert.equal(page.status,200);console.log('PASS HTML entrypoint responds');
+const anonymous=await request('/api/workspace?mode=live');assert.equal(anonymous.status,401);console.log('PASS unauthenticated accounting access denied');
+const sign=await request('/signin-with-chatgpt?return_to=/',{redirect:'manual'});const cookie=sign.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');assert.ok(cookie,'Local mock auth cookie must be issued');
+const headers={Cookie:cookie,'Content-Type':'application/json',Origin:base};
+const read=async mode=>{const r=await request('/api/workspace?mode='+mode,{headers});assert.equal(r.status,200,await r.clone().text());return r.json();};
+let demo=await read('demo');assert.ok(demo.state.documents.length>=11);let own=await read('live');assert.equal(own.state.documents.length,0);console.log('PASS sample and personal books isolated');
+const send=async(revision,command,extra={})=>{const r=await request('/api/workspace?mode=demo',{method:'POST',headers:{...headers,...extra},body:JSON.stringify({revision,command})});const raw=await r.text();let body;try{body=JSON.parse(raw);}catch{body={error:raw};}return {status:r.status,body};};
+const key='http-check-'+Date.now(),date=new Date().toISOString().slice(0,10);
+let result=await send(demo.revision,{key,type:'create_document',payload:{kind:'invoice',number:key,counterparty:'Integration Test',description:'HTTP accounting flow',issued:date,due:date,net:'125.25',taxRate:20}});assert.equal(result.status,200);demo=result.body;const id=demo.state.documents.at(-1).id;
+result=await send(demo.revision,{key:key+'-post',type:'post_document',payload:{id}});assert.equal(result.status,200);demo=result.body;
+result=await send(demo.revision,{key:key+'-receipt',type:'settle_document',payload:{id,amount:'50',date,reference:'test-receipt'}});assert.equal(result.status,200);demo=result.body;assert.equal(demo.state.documents.find(d=>d.id===id).settled,5000);console.log('PASS create, post and partial receipt persisted through HTTP');
+const repeated=await send(0,{key:key+'-receipt',type:'settle_document',payload:{id,amount:'50',date,reference:'test-receipt'}});assert.equal(repeated.status,200);assert.equal(repeated.body.revision,demo.revision);console.log('PASS duplicate request is idempotent');
+const stale=await send(0,{key:key+'-stale',type:'settings',payload:{companyName:'Wrong'}});assert.equal(stale.status,409);console.log('PASS stale write rejected');
+const cors=await send(demo.revision,{key:key+'-cors',type:'settings',payload:{companyName:'Wrong'}},{Origin:'https://untrusted.example'});assert.equal(cors.status,403);console.log('PASS cross-origin write rejected');
+const concurrent=await Promise.all(['a','b'].map(n=>send(demo.revision,{key:key+'-race-'+n,type:'settings',payload:{companyName:'Northstar Studio'}})));assert.deepEqual(concurrent.map(r=>r.status).sort(),[200,409]);console.log('PASS concurrent writers cannot overwrite each other');
+const fresh=await read('demo');assert.equal(fresh.state.documents.find(d=>d.id===id).settled,5000);assert.equal((await read('live')).state.documents.length,0);console.log('PASS saved data survives a fresh request and live books remain empty');
+const ai=await request('/api/agent',{method:'POST',headers,body:'{}'});assert.equal(ai.status,403);console.log('PASS paid AI requests disabled at server boundary');
+console.log('All 10 HTTP checks passed. Only the local sample database was mutated.');
