@@ -2,6 +2,8 @@
 
 A private, single-company GBP accounting workspace for UK services and SaaS businesses. The interface uses a white desktop-style canvas, a quiet grey sidebar, compact controls, and responsive layouts. It is a browser application; Electron packaging is not required for this interface.
 
+**Accrual is the working name of our app.** [Open the private release](https://accrual-finance.deepgnat260.chatgpt.site). See [release notes](docs/release-notes.md) and [AI provider setup](docs/ai-providers.md).
+
 ## Included
 
 - **Receivables:** create drafts, review and post invoices, record partial or full receipts, inspect source evidence, and export CSV.
@@ -15,7 +17,9 @@ A private, single-company GBP accounting workspace for UK services and SaaS busi
 
 Paid AI calls are **disabled by the owner's explicit choice**. `/api/agent` returns 403 after authentication, regardless of environment keys. No live model calls were made during implementation or testing.
 
-The current review queue is a deterministic policy engine. Reminder text is a template, not a model-generated response. A server-side OpenAI Responses adapter for structured bill extraction is prepared in `lib/ai.ts`, but is not called by any route. Enabling it requires explicit spending consent, a selected model, usage controls, server-side secret configuration, and live evaluation.
+The UI says **Live AI is off**. This means external language-model requests are disabled; the accounting app is available. It is unrelated to Codex usage limits. The current review queue uses accounting rules, and reminder text is a template.
+
+Server-side Groq and OpenAI adapters for structured bill extraction are prepared in `lib/ai.ts`, but no route calls them. They share validated fields and cannot post to the ledger. Groq Free tier is the suggested initial evaluation path, subject to confirmation of the account's actual plan. Live activation still requires secure key configuration, request limits, a review form, and model-quality evaluation. Other providers can be added; they are not connected today. See [AI providers](docs/ai-providers.md) for status and the remaining work.
 
 An API key was saved to the ignored `.env.local` file. Never publish or share that file. It is not required for the current release. The first key created during setup could not be recovered after the environment removed its temporary encryption file; it was never used and should be revoked in the OpenAI project. The saved replacement has the same name, “Agentic Accounting”, and a 30-day expiry.
 
@@ -47,13 +51,26 @@ This deliberately favours a simple atomic transaction boundary for a small first
 
 ## Development
 
-Node.js >=22.13 is required. Keep the bundled Sites build integration.
+Node.js >=22.13 is required; Node 24 is recommended and was used for validation. Keep the bundled Sites build integration. Install dependencies before the first run.
 
 ```sh
-npm run dev
-node --test tests/accounting.test.mjs
-npx tsc --noEmit
+npm ci
 npm run build
+```
+
+Initialise the local database once on a fresh checkout:
+
+```sh
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_awesome_deathbird.sql
+npm run dev
+```
+
+In a separate terminal, run the relevant checks:
+
+```sh
+node --test tests/accounting.test.mjs
+node --experimental-strip-types --test tests/ai.test.mjs
+npx tsc --noEmit
 ```
 
 The local development server uses the starter's simulated sign-in at `/signin-with-chatgpt?return_to=/`. It is limited to loopback development and is not included in hosted production builds. Production identity headers are supplied by the Sites gateway; do not expose the Worker directly without that authentication boundary.
@@ -64,7 +81,7 @@ On this Windows host, the system npm command shim needed a checkout-local wrappe
 
 ## Validation
 
-The 28 accounting regression checks, 10 local HTTP checks, TypeScript check, and production build passed. Browser checks verified the narrow responsive layout, invoice creation, posting and partial receipts. Publication details are recorded in `../release-notes.md`.
+The 28 accounting regression checks and 10 local HTTP checks passed before the initial publication. Eight offline provider-adapter checks were added for the final update. Browser checks verified the narrow responsive layout, invoice creation, posting, partial receipts, and bill approval. See [release notes](docs/release-notes.md) for the verification scope. Run `node tests/http-smoke.mjs` only against the local development server: it creates records in sample books.
 
 Browser verification initially hit an approval-review usage limit. After the reported reset, browser access resumed and the narrow layout and primary invoice flow were verified. A focus reset issue between dialogs was corrected. Full desktop-width visual inspection and broader device/accessibility testing remain outstanding.
 
@@ -76,4 +93,4 @@ Browser verification initially hit an approval-review usage limit. After the rep
 4. Add bank-statement import and reconciliation; email drafts should use an explicit delivery outbox and delivery status.
 5. Add roles, approval thresholds, backups, normalised ledger storage, operational monitoring, and accounting exports for a production rollout.
 
-See `../research-and-roadmap.md` for competitor research and the broader staged roadmap.
+See [research and roadmap](docs/research-and-roadmap.md) for competitor research and the broader staged roadmap.
