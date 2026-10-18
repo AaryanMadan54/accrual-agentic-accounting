@@ -1,4 +1,6 @@
-# Accrual 0.1
+# Accrual — Agentic Accounting — MVP v1
+
+Release label: **MVP v1**. Application version: **0.1.0**. An agentic accounting foundation with human-approved workflows; live model calls remain disabled in this release.
 
 A private, single-company GBP accounting workspace for UK services and SaaS businesses. The interface uses a white desktop-style canvas, a quiet grey sidebar, compact controls, and responsive layouts. It is a browser application; Electron packaging is not required for this interface.
 

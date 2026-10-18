@@ -1,4 +1,6 @@
-# Accrual v0.1 — 17 October 2026
+# Accrual — Agentic Accounting — MVP v1
+
+Application version: 0.1.0. First published 17 October 2026; release labelled MVP v1 on 18 October 2026.
 
 Private early-access release for a single UK services or SaaS company using GBP.
 
