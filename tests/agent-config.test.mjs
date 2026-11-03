@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {aiConfiguration} from '../lib/ai-config.ts';
+import {reviewBooks} from '../lib/ai.ts';
+const base={AI_PROVIDER:'groq',GROQ_API_KEY:'test-only',AI_MODEL:'test-model',AI_ENABLED:'true',AI_USAGE_APPROVED:'true'};
+test('live AI requires every activation condition and never exposes its key in public status',()=>{assert.equal(aiConfiguration({}).public.enabled,false);for(const field of Object.keys(base))assert.equal(aiConfiguration({...base,[field]:''}).public.enabled,false);const result=aiConfiguration(base);assert.equal(result.public.enabled,true);assert.ok(!JSON.stringify(result.public).includes('test-only'));});
+test('daily request caps are bounded and provider must be supported',()=>{assert.equal(aiConfiguration({...base,AI_DAILY_LIMIT:'100000'}).public.dailyLimit,50);assert.equal(aiConfiguration({...base,AI_DAILY_LIMIT:'-1'}).public.dailyLimit,20);assert.equal(aiConfiguration({...base,AI_PROVIDER:'untrusted'}).public.enabled,false);});
+test('finance review can only prioritise supplied action IDs and cannot invent a tool execution',async()=>{const config={provider:'groq',key:'fake',model:'test',enabled:true};const fake=value=>async()=>Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]});const review={summary:'Review one invoice',priorityIds:['actual-id'],questions:[]};assert.equal((await reviewBooks('{}',['actual-id'],config,fake(review))).priorityIds[0],'actual-id');await assert.rejects(reviewBooks('{}',['actual-id'],config,fake({...review,priorityIds:['invented-id']})),/unsupported/);await assert.rejects(reviewBooks('{}',['actual-id'],config,fake({...review,executePayment:true})),/unsupported/);});

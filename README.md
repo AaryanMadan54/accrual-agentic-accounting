@@ -1,100 +1,47 @@
-# Accrual — Agentic Accounting — MVP v1
+# Accrual · Agentic accounting
 
-Open-source code under the [MIT License](LICENSE). Bundled third-party components retain their own licenses and notices. The hosted accounting workspace has separate private access controls.
+Accrual 0.2 gives a UK services or SaaS company a private GBP ledger, receivables, payables and one bank account. Start in **My books** for your own records. **Sample books** has its own data. [Open Accrual](https://accrual-finance.deepgnat260.chatgpt.site)
 
-Release label: **MVP v1**. Application version: **0.1.0**. An agentic accounting foundation with human-approved workflows; live model calls remain disabled in this release.
+## Run a transaction through the books
 
-A private, single-company GBP accounting workspace for UK services and SaaS businesses. The interface uses a white desktop-style canvas, a quiet grey sidebar, compact controls, and responsive layouts. It is a browser application; Electron packaging is not required for this interface.
+1. Open Settings and enter the company details that should appear on invoices. Record an opening bank balance with a balanced journal dated before the first statement.
+2. Open Document intake. Paste a supplier bill's text or import a text file, review the fields, choose its expense account and VAT rate, then save the draft. Keep the original invoice or attachment separately.
+3. Run the checks in Agent inbox. Inspect the source and proposed posting before approving the bill. Receivables supports the corresponding customer workflow and printable invoice downloads.
+4. Import a GBP bank CSV in Banking. Give the statement dates and balances, choose the date format and preview the rows. Supported columns include Date, Description and signed Amount, or separate Money in and Money out.
+5. Review suggested matches. Linking an existing payment adds bank evidence. Matching an unpaid document records the payment and links it in the same transaction. Categorise bank-only entries separately.
+6. Review outstanding ledger items, compare the adjusted statement balance with the ledger, and finalise the reconciliation. Inspect the resulting journals, trial balance, P&L, balance sheet and historical ageing in Reports.
 
-**Accrual is the working name of our app.** [Open the private release](https://accrual-finance.deepgnat260.chatgpt.site). See [release notes](docs/release-notes.md) and [AI provider setup](docs/ai-providers.md).
+Credit notes reduce outstanding invoices or bills at the original VAT rate. Payment and credit corrections create linked reversing journals. Posted documents retain their history. Period locks protect closed books. Settings provides a JSON export of workspace records.
 
-## Included
+## What the agent does
 
-- **Receivables:** create drafts, review and post invoices, record partial or full receipts, inspect source evidence, and export CSV.
-- **Payables:** create and code bills, detect duplicate supplier references, approve and post, record payments, and reverse unpaid documents.
-- **General ledger:** balanced double-entry postings, a chart of accounts, manual journals, linked reversals, and period locks.
-- **Reports:** trial balance, cumulative profit and loss, balance sheet, and historical receivable/payable ageing.
-- **Review queue:** policy checks propose bill reviews and overdue-invoice reminder drafts. Each proposal carries evidence, a status, and a snapshot of the document used for approval.
-- **Controls:** append-only revision storage, optimistic concurrency, request idempotency, authenticated personal workspaces, separate sample and personal books, and an activity trail.
+On request, accounting rules read the current books, flag duplicate references, repeat charges and unusually large supplier bills, propose bill postings, prepare collection reminders and find bank matches. Approvals recheck the underlying record before posting. These workflows run with no model key.
 
-## AI and spending
+Two optional model workflows are integrated. Bill extraction returns editable fields from supplied text. Finance review prioritises actual pending proposals and can ask questions about the current books. Both record a run history. External calls are disabled in the hosted release. [Provider configuration](docs/ai-providers.md)
 
-Paid AI calls are **disabled by the owner's explicit choice**. `/api/agent` returns 403 after authentication, regardless of environment keys. No live model calls were made during implementation or testing.
+## Run locally
 
-The UI says **Live AI is off**. This means external language-model requests are disabled; the accounting app is available. It is unrelated to Codex usage limits. The current review queue uses accounting rules, and reminder text is a template.
-
-Server-side Groq and OpenAI adapters for structured bill extraction are prepared in `lib/ai.ts`, but no route calls them. They share validated fields and cannot post to the ledger. Groq Free tier is the suggested initial evaluation path, subject to confirmation of the account's actual plan. Live activation still requires secure key configuration, request limits, a review form, and model-quality evaluation. Other providers can be added; they are not connected today. See [AI providers](docs/ai-providers.md) for status and the remaining work.
-
-An API key was saved to the ignored `.env.local` file. Never publish or share that file. It is not required for the current release. The first key created during setup could not be recovered after the environment removed its temporary encryption file; it was never used and should be revoked in the OpenAI project. The saved replacement has the same name, “Agentic Accounting”, and a 30-day expiry.
-
-## Try the release
-
-1. Sign in to the private Site.
-2. Start in **Sample books** to explore realistic records.
-3. Open **Agent inbox**, review a bill, and choose **Approve & post**.
-4. Open **Receivables**, select an invoice, and record a receipt that has already happened.
-5. Inspect the resulting journal and reports.
-6. Switch to **My books** for an empty, separately stored workspace. Set your company name in Settings.
-
-Recording a payment does not move money. Approving a reminder does not send email. No bank feeds, email delivery, tax filing, automatic reconciliation, multi-currency, multi-entity consolidation, credit notes, or payment reversals are included yet. VAT rates are selected manually; the app does not determine tax eligibility. The P&L is cumulative through the selected date, not a configurable period comparison.
-
-## Architecture
-
-- React 19 client interface with Vinext routing and Cloudflare Workers deployment through Sites.
-- Cloudflare D1 durable storage and Sites-managed ChatGPT authentication.
-- `lib/accounting.mjs`: pure accounting rules, exact integer pennies, ledger validation, subledger reconciliation, and command transitions.
-- `lib/workspace.ts`: owner-scoped persistence, immutable checkpoints, and revision conflict handling.
-- `app/api/workspace/route.ts`: authenticated read/write boundary, origin checks, and bounded requests.
-- `app/workspace.jsx`: desktop-style interface and workflows.
-- `tests/accounting.test.mjs`: accounting regression suite.
-- `tests/http-smoke.mjs`: local-only HTTP checks; mutates sample books only.
-
-Each accepted command creates one complete state checkpoint in `workspace_revisions`. A composite primary key on owner, workspace, and revision ensures only one concurrent writer can commit. The journal, subledger, proposal state, idempotency history, and audit trail change together. The app exposes no update/delete path for saved checkpoints.
-
-This deliberately favours a simple atomic transaction boundary for a small first release. Checkpoints grow with the complete workspace state, and a 1.8 MB state limit is enforced. Before larger deployments, move to a normalised append-only journal and event store with database constraints, retention and backup policies, background jobs, stronger audit verification, team roles, and accounting review. Application-level immutability is not a claim of tamper-proof database administration.
-
-## Development
-
-Node.js >=22.13 is required; Node 24 is recommended and was used for validation. Keep the bundled Sites build integration. Install dependencies before the first run.
+Use Node 24 and the included lockfile. Install dependencies and build the Worker.
 
 ```sh
 npm ci
 npm run build
 ```
 
-Initialise the local database once on a fresh checkout:
+On a **fresh local database** apply each migration in order. On an existing database apply only outstanding migrations.
 
 ```sh
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_awesome_deathbird.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_outstanding_frightful_four.sql
 npm run dev
 ```
 
-In a separate terminal, run the relevant checks:
+The development sign-in simulates a local user. Hosted identity depends on the Sites authentication gateway. Run `npm test` for the accounting and offline provider suites and `npx tsc --noEmit` for TypeScript. With a local server at port 5173, run `node tests/http-smoke.mjs` and `node tests/http-reconciliation.mjs` against disposable sample books.
 
-```sh
-node --test tests/accounting.test.mjs
-node --experimental-strip-types --test tests/ai.test.mjs
-npx tsc --noEmit
-```
+## Architecture and operating limits
 
-The local development server uses the starter's simulated sign-in at `/signin-with-chatgpt?return_to=/`. It is limited to loopback development and is not included in hosted production builds. Production identity headers are supplied by the Sites gateway; do not expose the Worker directly without that authentication boundary.
+React and Vinext serve a desktop-style web interface on Cloudflare Workers. Authenticated commands apply double-entry rules in integer pennies and commit an entire workspace revision to D1. The owner, workspace and revision form a unique key to prevent lost updates. Command IDs make retries safe. Provider credentials stay on the server. Agent run history has its own database table.
 
-Database migrations are in `drizzle/`. Generate future migrations with `npm run db:generate`; never rewrite applied migrations. Build the project before applying a new local migration using the starter's Wrangler configuration.
+This release is suitable for a small, owner-operated pilot. Each checkpoint has a 1.8 MB application limit. Team roles, multiple currencies, bank feeds, payment initiation, email delivery, PDF/OCR intake, tax filing and a tested backup restore workflow are outside this release. VAT classification requires review. A JSON export is available for inspection and independent recordkeeping.
 
-On this Windows host, the system npm command shim needed a checkout-local wrapper in ignored `.sites-runtime/bin/`; the source and lockfile are portable. Use the documented Sites helper for source sync, packaging, and private deployment.
-
-## Validation
-
-The 28 accounting regression checks and 10 local HTTP checks passed before the initial publication. Eight offline provider-adapter checks were added for the final update. Browser checks verified the narrow responsive layout, invoice creation, posting, partial receipts, and bill approval. See [release notes](docs/release-notes.md) for the verification scope. Run `node tests/http-smoke.mjs` only against the local development server: it creates records in sample books.
-
-Browser verification initially hit an approval-review usage limit. After the reported reset, browser access resumed and the narrow layout and primary invoice flow were verified. A focus reset issue between dialogs was corrected. Full desktop-width visual inspection and broader device/accessibility testing remain outstanding.
-
-## Next iteration
-
-1. Complete browser acceptance testing and accountant review with representative real workflows.
-2. Add receipt/payment reversals and credit notes before expanding accounting use.
-3. Activate budgeted bill extraction with reviewed evaluations, then add proposal-only tool use and evidence-linked analysis.
-4. Add bank-statement import and reconciliation; email drafts should use an explicit delivery outbox and delivery status.
-5. Add roles, approval thresholds, backups, normalised ledger storage, operational monitoring, and accounting exports for a production rollout.
-
-See [research and roadmap](docs/research-and-roadmap.md) for competitor research and the broader staged roadmap.
+The source is public under the [MIT licence](LICENSE). The hosted books are private. [Release notes](docs/release-notes.md) · [Product research](docs/research-and-roadmap.md)

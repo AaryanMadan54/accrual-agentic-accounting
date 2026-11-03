@@ -8,6 +8,13 @@
       "when": 1792249071393,
       "tag": "0000_awesome_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793144440041,
+      "tag": "0001_outstanding_frightful_four",
+      "breakpoints": true
     }
   ]
 }

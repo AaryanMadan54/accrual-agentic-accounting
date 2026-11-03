@@ -5,5 +5,10 @@ declare namespace Cloudflare {
     OPENAI_API_KEY?: string;
     OPENAI_MODEL?: string;
     AI_ENABLED?: string;
+    AI_PROVIDER?: string;
+    AI_MODEL?: string;
+    GROQ_API_KEY?: string;
+    AI_USAGE_APPROVED?: string;
+    AI_DAILY_LIMIT?: string;
   }
 }
